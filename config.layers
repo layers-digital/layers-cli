@@ -1,0 +1,11 @@
+### SPECS (technologies)
+- nodejs:14.12.2
+- mongo
+- redis
+
+### REQUIRES (conditions)
+- google-service.json path
+
+### STEPS (commands)
+- yarn install
+- yarn build
