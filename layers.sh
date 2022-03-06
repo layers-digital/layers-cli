@@ -1,6 +1,7 @@
-#!/bin/zsh
+# DEPRECATED
+# use the golang files instead
 
-# source layers.sh
+
 LAYERS_DIR=('layers-comunicados' 'layers-atendimentos' 'tendaedu-web' 'tendaedu-backend')
 
 layers-cli() {
