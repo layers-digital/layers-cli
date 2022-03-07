@@ -14,21 +14,114 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func dockerInstallationCheckup() (succeeded bool, reason string, solution string) {
+	succeeded = false
+	reason = ""
+	solution = ""
+
+	defaultReturn := map[string]func() (bool, string, string){
+		"docker": func() (succeeded bool, reason string, solution string) {
+			succeeded = false
+			reason = "Docker engine isn't installed yet."
+			solution = "Checkout this link https://docs.docker.com/engine/install/"
+
+			return succeeded, reason, solution
+		},
+		"docker-compose": func() (succeeded bool, reason string, solution string) {
+			succeeded = false
+			reason = "docker-compose isn't installed yet."
+			solution = "Checkout this link https://docs.docker.com/compose/install/"
+
+			return succeeded, reason, solution
+		},
+	}
+
+	dockerInstallation, err := exec.Command("docker", "--version").Output()
+	if err != nil {
+		defaultReturn["docker"]()
+	}
+
+	dockerMessage := string(dockerInstallation)
+
+	if !strings.Contains(dockerMessage, "Docker version") {
+		defaultReturn["docker"]()
+	}
+
+	dockerComposeInstallation, err := exec.Command("docker", "--version").Output()
+	if err != nil {
+		defaultReturn["docker-compose"]()
+	}
+
+	dockerComposeMessage := string(dockerComposeInstallation)
+
+	if !strings.Contains(dockerComposeMessage, "docker-compose version") {
+		defaultReturn["docker-compose"]()
+	}
+
+	succeeded = true
+	return succeeded, solution, reason
+}
+
+func getDockerLine(imageName string) (columns []string) { // TODO: accept image version
+	dockerInstances, err := exec.Command("docker", "ps").Output()
+
+	columns = []string{}
+
+	if err != nil {
+		return columns
+	}
+
+	dockerLines := strings.Split(string(dockerInstances), "\n")
+	for i, line := range dockerLines {
+		if i == 0 || line == "" {
+			// ignore header and empty lines
+			continue
+		}
+
+		dockerColumns := strings.Split(line, "   ")
+
+		lineImageName := strings.Split(dockerColumns[1], ":")[0]
+
+		containsImageName := strings.Contains(dockerColumns[1], imageName)
+
+		if lineImageName == imageName || containsImageName {
+			columns = dockerColumns
+			break
+		}
+	}
+
+	return columns
+}
+
 type Command struct {
-	run func(args []string) bool
+	run func(args []string) (succeeded bool, reason string, solution string)
+}
+
+var staticErrors = map[string]map[string]string{
+	"node_installation": {
+		"reason":   "Couldn't get node version, maybe node isn't installed yet",
+		"solution": "Install node using nvm(https://github.com/nvm-sh/nvm) or asdf(https://github.com/asdf-vm/asdf-nodejs)",
+	},
+	"docker_init": {
+		"solution": "Be sure that you ran `sudo docker-compose up -d` at `tendaedu-backend` or `payments`",
+	},
 }
 
 var commandsDictionary = map[string]map[string]Command{
 	"specs": {
 		"nodejs": {
-			run: func(args []string) (succeeded bool) {
+			run: func(args []string) (succeeded bool, reason string, solution string) {
 				succeeded = false
+				reason = ""
+				solution = ""
 
 				requiredVersion := args[0]
 
 				nodeVersionOutput, err := exec.Command("node", "--version").Output()
 				if err != nil {
-					log.Fatal("couldn't get node version, maybe node is not installed yet")
+					reason = staticErrors["node_installation"]["reason"]
+					solution = staticErrors["node_installation"]["solution"]
+					return succeeded, reason, solution
 				}
 
 				nodeVersion := string(nodeVersionOutput)
@@ -40,40 +133,79 @@ var commandsDictionary = map[string]map[string]Command{
 
 				if majorMatches {
 					succeeded = true
+				} else {
+					reason = fmt.Sprintf("wrong node version. Expected `%s` but got `%s`", requiredVersion, major)
+					solution = fmt.Sprintf("run `nvm use %s` or `asdf local nodejs %s`", requiredVersion, requiredVersion)
 				}
 
-				return succeeded
+				return succeeded, reason, solution
 			},
 		},
 		"mongodb": {
-			run: func(args []string) (succeeded bool) {
+			run: func(args []string) (succeeded bool, reason string, solution string) {
 				succeeded = false
-				dockerInstances, err := exec.Command("docker", "ps").Output()
-				if err != nil {
-					log.Fatalln(err)
+				defaultSolution := staticErrors["docker_init"]["solution"]
+
+				succeeded, reason, solution = dockerInstallationCheckup()
+				if !succeeded {
+					return succeeded, reason, solution
 				}
 
-				dockerLines := strings.Split(string(dockerInstances), "\n")
-				for i, dockerLine := range dockerLines {
-					if i == 0 || dockerLine == "" {
-						// ignore header and empty lines
-						continue
-					}
-
-					dockerColumns := strings.Split(dockerLine, "   ")
-
-					// mongo:4.4.1 -> mongo
-					isMongoDB := strings.Split(dockerColumns[1], ":")[0] == "mongo"
-					isCorrectPort := strings.Contains(dockerColumns[5], "27017")
-					isCorrectInstance := dockerColumns[6] == "tendaedu-backend_mongo_1" || dockerColumns[6] == "payments_mongo_1"
-
-					if isCorrectInstance && isCorrectPort && isMongoDB {
-						succeeded = true
-						break
-					}
+				mongoInstanceColumns := getDockerLine("mongo")
+				if len(mongoInstanceColumns) == 0 {
+					succeeded = false
+					reason = "There is no MongoDB instance running in Docker."
+					solution = defaultSolution
+					return succeeded, reason, solution
 				}
 
-				return succeeded
+				// mongo:4.4.1 -> mongo
+				isMongoDB := strings.Split(mongoInstanceColumns[1], ":")[0] == "mongo"
+				isCorrectPort := strings.Contains(mongoInstanceColumns[5], "27017")
+				isCorrectInstance := mongoInstanceColumns[6] == "tendaedu-backend_mongo_1" || mongoInstanceColumns[6] == "payments_mongodb-primary_1"
+
+				if isCorrectInstance && isCorrectPort && isMongoDB {
+					succeeded = true
+				} else {
+					reason = "Didn't find any MongoDB at docker instances."
+					solution = defaultSolution
+				}
+
+				return succeeded, reason, solution
+			},
+		},
+		"redis": {
+			run: func(args []string) (succeeded bool, reason string, solution string) {
+				succeeded = false
+				reason = ""
+				solution = ""
+
+				defaultSolution := staticErrors["docker_init"]["solution"]
+
+				succeeded, reason, solution = dockerInstallationCheckup()
+				if !succeeded {
+					return succeeded, reason, solution
+				}
+
+				redisInstanceColumn := getDockerLine("redis")
+				if len(redisInstanceColumn) == 0 {
+					succeeded = false
+					reason = "There is no Redis instance running in Docker."
+					solution = defaultSolution
+					return succeeded, reason, solution
+				}
+
+				isCorrectPort := strings.Contains(redisInstanceColumn[5], "27017")
+				isCorrectInstance := redisInstanceColumn[6] == "tendaedu-backend_redis_1" || redisInstanceColumn[6] == "payments_redis_1"
+
+				if isCorrectInstance && isCorrectPort {
+					succeeded = true
+				} else {
+					reason = "Didn't find any MongoDB at docker instances."
+					solution = defaultSolution
+				}
+
+				return succeeded, reason, solution
 			},
 		},
 	},
@@ -90,15 +222,20 @@ var doctorCmd = &cobra.Command{
 
 		instructions := getLayersInstructions()
 
-		fmt.Println("Layers's instructions slice")
+		fmt.Println("\nLayers's instructions slices")
 		for _, instruction := range instructions {
 			fmt.Println(instruction)
 		}
 
 		results := runInstructions(instructions)
 
+		fmt.Println("\nRESULTS")
 		for _, result := range results {
 			fmt.Printf("%s -> %s\n", result.command, result.status)
+			if result.status == "failed" {
+				fmt.Println(result.resultMessage)
+			}
+			fmt.Println("")
 		}
 	},
 }
@@ -194,7 +331,7 @@ func runInstructions(instructions []Instruction) (results []Instruction) {
 		if instruction.kind != "specs" {
 			continue
 		}
-		succeeded := commandsDictionary[instruction.kind][instruction.command].run(instruction.args)
+		succeeded, reason, solution := commandsDictionary[instruction.kind][instruction.command].run(instruction.args)
 
 		result := instruction
 
@@ -202,6 +339,7 @@ func runInstructions(instructions []Instruction) (results []Instruction) {
 			result.status = "succeeded"
 		} else {
 			result.status = "failed"
+			result.resultMessage = fmt.Sprintf("Reason: %s\nSolution: %s", reason, solution)
 		}
 
 		results = append(results, result)

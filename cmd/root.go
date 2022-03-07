@@ -12,7 +12,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "layers.cli",
+	Use:   "layers-cli",
 	Short: "Layers CLI",
 	Long:  `A longer description...`,
 	// Uncomment the following line if your bare application
