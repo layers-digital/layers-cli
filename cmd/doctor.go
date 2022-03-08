@@ -5,6 +5,7 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -205,6 +206,39 @@ var commandsDictionary = map[string]map[string]Command{
 					solution = defaultSolution
 				}
 
+				return succeeded, reason, solution
+			},
+		},
+		"file": {
+			run: func(args []string) (succeeded bool, reason string, solution string) {
+				path := args[0]
+				succeeded = false
+				reason = ""
+				solution = ""
+
+				directories := strings.Split(path, "/")
+				filename := directories[len(directories)-1]
+
+				if _, err := os.Stat(path); err == nil {
+					file, err := os.ReadFile(path)
+					if err != nil {
+						reason = fmt.Sprintf("Couldn't read the file content at path: %s", path)
+						solution = fmt.Sprintf("Be sure that a file exists at this path: %s", path)
+					}
+					if len(string(file)) == 0 {
+						reason = fmt.Sprintf("File at path '%s' is empty.", path)
+						solution = fmt.Sprintf("If you don't have it, call some experient dev to get this, or maybe you can get this in the repository's environment variables section.")
+					} else {
+						succeeded = true
+					}
+				} else if errors.Is(err, os.ErrNotExist) {
+					reason = fmt.Sprintf("File at path '%s' doesn't exist", path)
+					solution = fmt.Sprintf("Be sure that file '%s' is at this path '%s'. If you don't have it, call some experient dev to get this, or maybe you can get this in the repository's environment variables section.", filename, path)
+				} else {
+					// fatal error
+					reason = fmt.Sprintf("Unknown file error. Error: %s", err)
+					solution = "Unfortunately I don't know the solution for this error :("
+				}
 				return succeeded, reason, solution
 			},
 		},
