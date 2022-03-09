@@ -11,6 +11,10 @@ Now using golang
 - If you want to build, use this command `go build` in the root. It will generate `layers_cli` file, which could be initialized via terminal
 - If you want to create a new command, you must install [CobraGenerator](https://github.com/spf13/cobra/blob/master/cobra/README.md). With CobraGenerator installed, use the command `cobra add <commandName>` in the root.
 
+### How to install?
+- run `bash ./install.sh --build` in the root to build and install
+- OBS: At this moment you need to install golang to build
+
 ### Tasks
 - [x] *layers doctor*: should check if the directory is well configurated;
   - [x] *node version step*: verify node version;
