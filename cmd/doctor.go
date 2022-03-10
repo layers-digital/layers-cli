@@ -15,6 +15,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func checkProcessAtPort(port string, name string, dir string) (succeeded bool, reason string, solution string) {
+	succeeded = false
+	reason = ""
+	solution = ""
+
+	process, err := exec.Command("lsof", "-i", ":8009").Output()
+	if err != nil {
+		reason = fmt.Sprintf("No process running at port: %s", port)
+		solution = fmt.Sprintf("Start the server for `%s`", dir)
+		return succeeded, reason, solution
+	}
+	lines := strings.Split(string(process), "\n")
+
+	// lines[0] is the header
+	/*
+		Example:
+		COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+		node    59526 user   66u  IPv6 0xc2851b8f1c265133      0t0  TCP *:8009 (LISTEN)
+	*/
+
+	processLine := lines[1]
+
+	hasCommandName := strings.HasPrefix(processLine, name)
+
+	if hasCommandName {
+		succeeded = true
+		return succeeded, reason, solution
+	}
+
+	reason = fmt.Sprintf("Process running at port `%s` isn't `%s`", port, name)
+	solution = fmt.Sprintf("Start the server for `%s`", dir)
+	return succeeded, reason, solution
+}
+
 func dockerInstallationCheckup() (succeeded bool, reason string, solution string) {
 	succeeded = false
 	reason = ""
@@ -109,7 +143,7 @@ var staticErrors = map[string]map[string]string{
 }
 
 var commandsDictionary = map[string]map[string]Command{
-	"specs": {
+	"check": {
 		"nodejs": {
 			run: func(args []string) (succeeded bool, reason string, solution string) {
 				succeeded = false
@@ -242,6 +276,19 @@ var commandsDictionary = map[string]map[string]Command{
 				return succeeded, reason, solution
 			},
 		},
+		"layersDir": {
+			run: func(args []string) (succeeded bool, reason string, solution string) {
+				dir := args[0]
+				ports := map[string]string{
+					"tendaedu-backend":    "8009",
+					"layers-auth-vanilla": "8090",
+					"layers-webapp":       "8090",
+				}
+
+				succeeded, reason, solution = checkProcessAtPort(ports[dir], "node", dir)
+				return succeeded, reason, solution
+			},
+		},
 	},
 }
 
@@ -276,7 +323,7 @@ var doctorCmd = &cobra.Command{
 
 type Instruction struct {
 	status        string   // "toRun" | "failed" | "success"
-	kind          string   // "specs" | "requires" | "steps"
+	kind          string   // "check" | "run"
 	command       string   // ex: "mongodb", "nodejs", "redis"
 	args          []string // command arguments
 	resultMessage string
@@ -361,8 +408,8 @@ func runInstructions(instructions []Instruction) (results []Instruction) {
 
 	for _, instruction := range instructions {
 
-		// TODO: accept more kinds
-		if instruction.kind != "specs" {
+		// TODO: doesn't accept run steps yet
+		if instruction.kind != "check" {
 			continue
 		}
 		succeeded, reason, solution := commandsDictionary[instruction.kind][instruction.command].run(instruction.args)
