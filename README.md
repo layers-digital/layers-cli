@@ -17,11 +17,13 @@ Now using golang
 
 ### Tasks
 - [x] *layers doctor*: should check if the directory is well configurated;
-  - [x] *node version step*: verify node version;
-  - [x] *mongo step*: verify if mongoDB is running;
-  - [-] *redis step*: verify if Redis is running;
-- [ ] *configuration file (config.layers)*: a file to specify the project's configuration;
-  - [ ] *SPECS*: specifies the technologies used in the project (<techName>:<version>);
-  - [ ] *REQUIRES*: pre conditions to run the project;
-  - [ ] *STEPS*: commands to run step-by-step (*to be discussed*);
-- [ ] *automatic installation*;
+  - [x] Check Steps:
+    - [x] *node version instruction*: verify node version;
+    - [x] *mongo instruction*: verify if mongoDB is running;
+    - [x] *redis instruction*: verify if Redis is running;
+    - [x] *file instruction*: verify if file exists;
+    - [x] *layersDir instruction*: verify if specified layers's directory is running;
+  - [ ] Run Steps:
+    - [ ] Do cli run steps to run a server;
+- [x] *configuration file (LAYERS.md)*: a file to specify the project's configuration;
+- [x] *automatic installation*;

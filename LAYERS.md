@@ -1,13 +1,12 @@
-### SPECS (technologies)
+### CHECK STEPS
 - nodejs 14
 - mongodb
 - redis
+- file ./config/google-service.json 
+- layersDir tendaedu-backend
+- layersDir layers-webapp
+- layersDir layers-auth-vanilla
 
-### REQUIRES (conditions)
-- file google-service.json ./config
-- file .env ./
-- google-service.json path
-
-### STEPS (commands)
+### RUN STEPS
 - yarn install
 - yarn build
