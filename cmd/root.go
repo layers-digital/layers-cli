@@ -12,9 +12,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "layers-cli",
+	Use:   "layers",
 	Short: "Layers CLI",
-	Long:  `A longer description...`,
+	Long:  `A cli to help Shapers run Layers's ecosystem in your own machine.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

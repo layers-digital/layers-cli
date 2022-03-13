@@ -17,12 +17,8 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run ecosystem",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long: `Run the ecosystem for the current project.
+	Be sure to run "layers ecosystem setup" before this`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("run called")
 		rootDir := os.Getenv("LAYERS_PATH")
@@ -30,7 +26,13 @@ to quickly create a Cobra application.`,
 			rootDir = "../"
 		}
 
-		shell := exec.Command("pm2", "start", "testecosystem.config.js")
+		dir := getActualDir()
+
+		if _, err := os.Stat(fmt.Sprintf("%s/%s.config.js", rootDir, dir)); err != nil {
+			log.Fatalf("Didn't find any config for `%s`. Be sure that you ran `layers ecosystem setup`\n", dir)
+		}
+
+		shell := exec.Command("pm2", "start", dir+".config.js")
 
 		shell.Dir = rootDir
 		shell.Stdout = os.Stdout

@@ -16,17 +16,24 @@ import (
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop all processes or just one",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Stop current ecosystem process",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("stop called")
-		shell := exec.Command("pm2", "delete", "all")
+		rootDir := os.Getenv("LAYERS_PATH")
+		if rootDir == "" {
+			rootDir = "../"
+		}
 
+		dir := getActualDir()
+
+		if _, err := os.Stat(fmt.Sprintf("%s/%s.config.js", rootDir, dir)); err != nil {
+			log.Fatalf("Didn't find any config for `%s`. Be sure that you ran `layers ecosystem setup`\n", dir)
+		}
+
+		shell := exec.Command("pm2", "delete", dir+".config.js")
+
+		shell.Dir = rootDir
 		shell.Stdout = os.Stdout
 		shell.Stderr = os.Stderr
 		shell.Stdin = os.Stdin
