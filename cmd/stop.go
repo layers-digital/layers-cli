@@ -27,13 +27,13 @@ var stopCmd = &cobra.Command{
 
 		dir := getActualDir()
 
-		if _, err := os.Stat(fmt.Sprintf("%s/%s.config.js", rootDir, dir)); err != nil {
+		if _, err := os.Stat(fmt.Sprintf("%s/ecosystems/%s.config.js", rootDir, dir)); err != nil {
 			log.Fatalf("Didn't find any config for `%s`. Be sure that you ran `layers ecosystem setup`\n", dir)
 		}
 
 		shell := exec.Command("pm2", "delete", dir+".config.js")
 
-		shell.Dir = rootDir
+		shell.Dir = rootDir + "/ecosystems"
 		shell.Stdout = os.Stdout
 		shell.Stderr = os.Stderr
 		shell.Stdin = os.Stdin

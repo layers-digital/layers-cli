@@ -37,6 +37,9 @@ var setupCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("setup called")
 
+		colorGreen := "\033[32m"
+		colorReset := "\033[0m"
+
 		actual := getActualDir()
 		fmt.Println(actual)
 
@@ -54,13 +57,14 @@ var setupCmd = &cobra.Command{
 			log.Fatal(err.Error())
 		}
 
-		succeeded, err := directory.Setup()
+		succeeded, err := directory.Setup(args)
 		if err != nil {
 			log.Fatalf("Couldn't set up `%s` :(. Error: %s\n", actual, err.Error())
 		}
 
 		if succeeded {
-			fmt.Printf("Yay! `%s` is already set up. Use `layers-cli ecosystem run` to run layers's ecosystem for this repository.\n", actual)
+			message := fmt.Sprintf("Yay! `%s` is already set up. Use `layers-cli ecosystem run` to run layers's ecosystem for this repository.\n", actual)
+			fmt.Println(string(colorGreen), message, string(colorReset))
 		}
 	},
 }

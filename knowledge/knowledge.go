@@ -47,9 +47,61 @@ func New(name string) (*DirectoryKnowledge, error) {
 	}, nil
 }
 
-func (directory *DirectoryKnowledge) Setup() (bool, error) {
-	// run mongodb and redis if needed
-	// yarn install yarn populate both
+type CheckItem struct {
+	name      string
+	succeeded bool
+	reason    string
+	solution  string
+}
+
+func printCheckItems(checkItems []CheckItem) {
+	for _, check := range checkItems {
+		fmt.Printf("%s -> succeeded %v\n", check.name, check.succeeded)
+		if !check.succeeded {
+			fmt.Printf("reason: %s\nsolution: %s\n", check.reason, check.solution)
+		}
+		fmt.Println()
+	}
+}
+
+func (directory *DirectoryKnowledge) Doctor() {
+	checkItems := []CheckItem{}
+
+	for _, dir := range directory.this.requires {
+		args := []string{}
+		args = append(args, dir)
+		succeeded, reason, solution := directoriesNeedsDictionary["dir"].check(args)
+		checkItem := CheckItem{
+			name:      "dir:" + dir,
+			succeeded: succeeded,
+			reason:    reason,
+			solution:  solution,
+		}
+		checkItems = append(checkItems, checkItem)
+	}
+
+	for _, instruction := range directory.this.instructions {
+		for _, need := range instruction.needs {
+			args := []string{}
+			succeeded, reason, solution := directoriesNeedsDictionary[need].check(args)
+			checkItem := CheckItem{
+				name:      need + ":" + directory.name + "/" + instruction.path,
+				succeeded: succeeded,
+				reason:    reason,
+				solution:  solution,
+			}
+			checkItems = append(checkItems, checkItem)
+		}
+	}
+
+	printCheckItems(checkItems)
+}
+
+func (directory *DirectoryKnowledge) Setup(args []string) (bool, error) {
+	isInitial := false
+	if args[0] == "initial" {
+		isInitial = true
+	}
 
 	directoriesToSetup := []DirectoryKnowledge{}
 	for _, layersDirectoryName := range directory.this.requires {
@@ -99,6 +151,23 @@ func (directory *DirectoryKnowledge) Setup() (bool, error) {
 		}
 	}
 
+	if isInitial {
+		installNpmBasics()
+		for _, dir := range directoriesToSetup {
+			colorGreen := "\033[32m"
+			colorReset := "\033[0m"
+			colorCyan := "\033[36m"
+			fmt.Println(string(colorGreen), fmt.Sprintf("Accessing `%s` \n", dir.name), string(colorReset))
+			for _, instruction := range dir.this.instructions {
+				pathVar := changeNodeVersion(strings.Split(instruction.interpreter, ":")[1])
+				for _, command := range instruction.commands.setup {
+					fmt.Println(string(colorCyan), fmt.Sprintf("Running `%s` at `%s/%s` \n", command, dir.name, instruction.path), string(colorReset))
+					runSetupCommand(command, instruction, dir.name, pathVar)
+				}
+			}
+		}
+	}
+
 	ecosystem, err := generateEcosystemConfig(directoriesToSetup)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -107,6 +176,132 @@ func (directory *DirectoryKnowledge) Setup() (bool, error) {
 	writeFile(ecosystem, directory.name)
 
 	return true, nil
+}
+
+func changeNodeVersion(major string) string {
+	newVersionPath, err := getNodeInterpreter("nvm", major)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	out, err := exec.Command("node", "--version").Output()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	old := strings.TrimPrefix(strings.Split(string(out), ".")[0], "v")
+	oldVersionPath, err := getNodeInterpreter("nvm", old)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	pathVar := os.Getenv("PATH")
+
+	pathVar = strings.ReplaceAll(pathVar, strings.TrimSuffix(oldVersionPath, "/node"), strings.TrimSuffix(newVersionPath, "/node"))
+	fmt.Println(pathVar)
+
+	return pathVar
+}
+
+func installNpmBasics() {
+	fmt.Println("start installation")
+
+	nodeVersions := []string{"8", "12", "14"}
+	scripts := []string{"yarn", "pm2"}
+
+	fmt.Println(scripts)
+	fmt.Println(nodeVersions)
+
+	for _, nodeVersion := range nodeVersions {
+		changeNodeVersion(nodeVersion)
+		for _, script := range scripts {
+			command := exec.Command("npm", "install", "-g", script)
+
+			command.Stderr = os.Stderr
+			command.Stdin = os.Stdin
+			command.Stdout = os.Stdout
+			command.Run()
+		}
+	}
+}
+
+func runSetupCommand(command string, instruction RunInstruction, dirName string, pathVar string) {
+	splitted := strings.Split(command, " ")
+	args := []string{}
+	for index, arg := range splitted {
+		if index > 0 {
+			args = append(args, arg)
+		}
+	}
+	script := splitted[0]
+
+	path := os.Getenv("LAYERS_PATH") + "/" + dirName
+
+	if instruction.path != "root" {
+		path = path + "/" + instruction.path
+	}
+
+	runScript(script, args, path, instruction.interpreter, pathVar)
+}
+
+func getScriptPath(script string, interpreter string) (path string) {
+	fmt.Println(interpreter)
+	major := strings.Split(interpreter, ":")[1]
+	fmt.Println(major)
+
+	pathToNode, err := getNodeInterpreter("nvm", major)
+	if err != nil {
+		log.Fatalf("Couldn't get node path for v%s", major)
+	}
+
+	fmt.Println(pathToNode)
+
+	// getNodeInterpreter -> "/Users/user/.nvm/versions/node/v12.22.8/bin/node"
+	// change only last file to get script path
+	// "/Users/user/.nvm/versions/node/v12.22.8/bin/node" -> "/Users/user/.nvm/versions/node/v12.22.8/bin/script"
+	splittedPath := strings.Split(pathToNode, "/")
+	splittedPath[len(splittedPath)-1] = script
+
+	pathToScript := strings.Join(splittedPath, "/")
+
+	return pathToScript
+}
+
+func runScript(script string, args []string, path string, interpreter string, pathVar string) {
+	scriptPath := getScriptPath(script, interpreter)
+
+	fmt.Println(scriptPath, args)
+
+	command := exec.Command(scriptPath, args...)
+
+	command.Env = append(command.Env, "PATH="+pathVar)
+
+	command.Dir = path
+	command.Stderr = os.Stderr
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+
+	command.Run()
+}
+
+func installPm2() {
+	command := exec.Command("npm", "install", "-g", "pm2@latest")
+
+	command.Stderr = os.Stderr
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+
+	command.Run()
+}
+
+func IsPm2Installed() bool {
+	output, err := exec.Command("pm2", "--version").Output()
+	if err != nil {
+		return false
+	}
+
+	if len(string(output)) == 0 {
+		return false
+	}
+	return true
 }
 
 func generateEcosystemConfig(directories []DirectoryKnowledge) (ecosystem string, err error) {
@@ -127,7 +322,15 @@ func generateEcosystemConfig(directories []DirectoryKnowledge) (ecosystem string
 func writeFile(ecosystem string, dirName string) {
 	layersPath := os.Getenv("LAYERS_PATH")
 
-	f, err := os.Create(fmt.Sprintf("%s/%s.config.js", layersPath, dirName))
+	path := layersPath + "/ecosystems"
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(path, os.ModePerm)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	f, err := os.Create(fmt.Sprintf("%s/ecosystems/%s.config.js", layersPath, dirName))
 	if err != nil {
 		log.Fatalln("Couldn't write file")
 	}
@@ -156,11 +359,11 @@ func getPm2DirAsString(dir RunInstruction, dirName string) string {
 		log.Fatalln(fmt.Sprintf("Couldn't get interpreter for `%s`. Error: %s\n", dirName, err.Error()))
 	}
 
-	relativePath := fmt.Sprintf("./%s", dirName)
+	relativePath := fmt.Sprintf("/%s", dirName)
 	name := dirName
 	if dir.path != "root" {
 		name = fmt.Sprintf("%s/%s", dirName, dir.path)
-		relativePath = fmt.Sprintf("./%s/%s", dirName, dir.path)
+		relativePath = fmt.Sprintf("/%s/%s", dirName, dir.path)
 	}
 
 	splittedCommand := strings.Split(dir.commands.starter, " ")
@@ -170,7 +373,7 @@ func getPm2DirAsString(dir RunInstruction, dirName string) string {
 	return fmt.Sprintf(`
 	{
 		name: '%s',
-		cwd: '%s',
+		cwd: '../%s',
 		script: '%s',
 		args: '%s',
 		interpreter: '%s',
@@ -360,6 +563,23 @@ var directoriesNeedsDictionary = map[string]DirectoryNeeds{
 				reason = fmt.Sprintf("Unknown file error. Error: %s", err)
 				solution = "Unfortunately I don't know the solution for this error :("
 			}
+			return succeeded, reason, solution
+		},
+		run: func(args []string) error {
+			// can't check this
+			return nil
+		},
+	},
+	"dir": {
+		check: func(args []string) (succeeded bool, reason string, solution string) {
+			dir := args[0]
+			ports := map[string]string{
+				"tendaedu-backend":    "8009",
+				"layers-auth-vanilla": "8090",
+				"layers-webapp":       "8080",
+			}
+
+			succeeded, reason, solution = checkProcessAtPort(ports[dir], "node", dir)
 			return succeeded, reason, solution
 		},
 		run: func(args []string) error {
