@@ -6,6 +6,15 @@ on:
       - master
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ncipollo/release-action@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
   releases-matrix:
     name: Release Go Binary
     runs-on: ubuntu-latest
