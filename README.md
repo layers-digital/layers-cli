@@ -16,14 +16,31 @@ Now using golang
 - OBS: At this moment you need to install golang to build
 
 ### Tasks
-- [x] *layers doctor*: should check if the directory is well configurated;
-  - [x] Check Steps:
-    - [x] *node version instruction*: verify node version;
-    - [x] *mongo instruction*: verify if mongoDB is running;
-    - [x] *redis instruction*: verify if Redis is running;
-    - [x] *file instruction*: verify if file exists;
-    - [x] *layersDir instruction*: verify if specified layers's directory is running;
-  - [ ] Run Steps:
-    - [ ] Do cli run steps to run a server;
+- [x] Commands: status of each command
+  - [ ] Doctor
+    - [x] check mongodb
+    - [x] check redis
+    - [x] check file
+    - [x] check required directories
+    - [ ] use knowledge package
+  - [ ] Ecosystem
+    - [x] Run
+      - [x] Run ecosystem for current project
+    - [x] Monitor
+      - [x] Open pm2's terminal monitor
+    - [ ] Setup
+      - [x] get project's required directories
+      - [x] get needs for the project ecosystem
+      - [x] setup needs
+      - [ ] run setup scripts for each directory
+      - [ ] get interpreters
+        - [x] node
+          - [x] from nvm
+          - [ ] from asdf
+      - [x] generate .config.js file
+    - [x] Stop
+      - [ ] Stop current ecosystem
 - [x] *configuration file (LAYERS.md)*: a file to specify the project's configuration;
-- [x] *automatic installation*;
+- [ ] *automatic installation*;
+  - [ ] publish binary
+  - [x] install script
