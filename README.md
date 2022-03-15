@@ -4,6 +4,13 @@ Parallel project to simplify Layers's repos first usage
 
 Now using golang
 
+### To Install
+- NVM
+  - install versions: 8, 12, 14
+  - NVM_DIR is set
+- Layers
+  - LAYERS_PATH is set to the root of Layers's directory
+  
 ### About Go project
 - To run in your own machine you must have [golang](https://go.dev/doc/install) installed
 - This project is using [Cobra](https://github.com/spf13/cobra) to build the CLI
