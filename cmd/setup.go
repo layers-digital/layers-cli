@@ -37,6 +37,9 @@ var setupCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("setup called")
 
+		isInitial, _ := cmd.Flags().GetBool("initial")
+		populate, _ := cmd.Flags().GetBool("populate")
+
 		colorGreen := "\033[32m"
 		colorReset := "\033[0m"
 
@@ -57,7 +60,7 @@ var setupCmd = &cobra.Command{
 			log.Fatal(err.Error())
 		}
 
-		succeeded, err := directory.Setup(args)
+		succeeded, err := directory.Setup(args, isInitial, populate)
 		if err != nil {
 			log.Fatalf("Couldn't set up `%s` :(. Error: %s\n", actual, err.Error())
 		}
@@ -71,6 +74,9 @@ var setupCmd = &cobra.Command{
 
 func init() {
 	ecosystemCmd.AddCommand(setupCmd)
+
+	setupCmd.PersistentFlags().Bool("initial", true, "Run initial installation.")
+	setupCmd.PersistentFlags().Bool("populate", true, "Run populate.")
 
 	// Here you will define your flags and configuration settings.
 

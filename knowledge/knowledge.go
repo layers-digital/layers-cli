@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -97,12 +98,7 @@ func (directory *DirectoryKnowledge) Doctor() {
 	printCheckItems(checkItems)
 }
 
-func (directory *DirectoryKnowledge) Setup(args []string) (bool, error) {
-	isInitial := false
-	if args[0] == "initial" {
-		isInitial = true
-	}
-
+func (directory *DirectoryKnowledge) Setup(args []string, isInitial bool, populate bool) (bool, error) {
 	directoriesToSetup := []DirectoryKnowledge{}
 	for _, layersDirectoryName := range directory.this.requires {
 		layersDirectoryKnowledge := DirectoryKnowledge{
@@ -153,6 +149,9 @@ func (directory *DirectoryKnowledge) Setup(args []string) (bool, error) {
 
 	if isInitial {
 		installNpmBasics()
+	}
+
+	if isInitial || populate {
 		for _, dir := range directoriesToSetup {
 			colorGreen := "\033[32m"
 			colorReset := "\033[0m"
@@ -196,7 +195,6 @@ func changeNodeVersion(major string) string {
 	pathVar := os.Getenv("PATH")
 
 	pathVar = strings.ReplaceAll(pathVar, strings.TrimSuffix(oldVersionPath, "/node"), strings.TrimSuffix(newVersionPath, "/node"))
-	fmt.Println(pathVar)
 
 	return pathVar
 }
@@ -324,7 +322,7 @@ func writeFile(ecosystem string, dirName string) {
 
 	path := layersPath + "/ecosystems"
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(path, os.ModePerm)
+		err := os.Mkdir(path, 0777)
 		if err != nil {
 			log.Println(err)
 		}
@@ -391,16 +389,40 @@ func getNodeInterpreter(mode string, requiredMajor string) (interpreterPath stri
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Couldn't get node versions at path: %s", nvmNodeDirs))
 	}
+	finalPath := ""
+	actualMinor := 0
+	actualPatch := 0
 
 	for _, dir := range nodeVersions {
+
 		if dir.IsDir() {
-			majorVersion := strings.Split(strings.TrimPrefix(dir.Name(), "v"), ".")[0]
-			if majorVersion == requiredMajor {
-				return fmt.Sprintf("%s/%s/bin/node", nvmNodeDirs, dir.Name()), nil
+			versions := strings.Split(strings.TrimPrefix(dir.Name(), "v"), ".")
+
+			major := versions[0]
+			minor, _ := strconv.Atoi(versions[1])
+			patch, _ := strconv.Atoi(versions[2])
+			if major == requiredMajor {
+				if actualMinor == minor {
+					if actualPatch < patch {
+						actualPatch = patch
+						finalPath = fmt.Sprintf("%s/%s/bin/node", nvmNodeDirs, dir.Name())
+					}
+				} else if actualMinor < minor {
+					actualMinor = minor
+					finalPath = fmt.Sprintf("%s/%s/bin/node", nvmNodeDirs, dir.Name())
+				}
+
+				if finalPath == "" {
+					finalPath = fmt.Sprintf("%s/%s/bin/node", nvmNodeDirs, dir.Name())
+				}
 			}
 		}
 		fmt.Println(dir.Name(), dir.IsDir())
 	}
+	if finalPath != "" {
+		return finalPath, nil
+	}
+
 	return "", errors.New(fmt.Sprintf("Couldn't find %s version at `%s`\n", requiredMajor, nvmNodeDirs))
 }
 
@@ -714,7 +736,7 @@ func checkProcessAtPort(port string, name string, dir string) (succeeded bool, r
 	reason = ""
 	solution = ""
 
-	process, err := exec.Command("lsof", "-i", ":8009").Output()
+	process, err := exec.Command("lsof", "-i", fmt.Sprintf(":%s", port)).Output()
 	if err != nil {
 		reason = fmt.Sprintf("No process running at port: %s", port)
 		solution = fmt.Sprintf("Start the server for `%s`", dir)
