@@ -675,7 +675,7 @@ var layersDirectoriesDictionary = map[string]LayersDirectory{
 			},
 		},
 	},
-	"layers-comunicados": {
+	"layers-apps-comunicados": {
 		requires: []string{
 			"tendaedu-backend",
 			"layers-auth-vanilla",
