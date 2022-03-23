@@ -27,7 +27,7 @@ type RunInstruction struct {
 }
 
 type LayersDirectory struct {
-	requires     []string // layers directories. Ex: { "tendaedu-backend" "layers-auth-vanilla"}
+	requires     []string // layers directories. Ex: { "layers-core-backend" "layers-core-id"}
 	instructions []RunInstruction
 }
 
@@ -495,7 +495,7 @@ var directoriesNeedsDictionary = map[string]DirectoryNeeds{
 			return succeeded, reason, solution
 		},
 		run: func(args []string) error {
-			pathToBackendCore := os.Getenv("LAYERS_PATH") + "/tendaedu-backend"
+			pathToBackendCore := os.Getenv("LAYERS_PATH") + "/layers-core-backend"
 
 			cmd := exec.Command("sudo", "docker-compose", "up", "-d")
 			cmd.Dir = pathToBackendCore
@@ -542,7 +542,7 @@ var directoriesNeedsDictionary = map[string]DirectoryNeeds{
 			return succeeded, reason, solution
 		},
 		run: func(args []string) error {
-			pathToBackendCore := os.Getenv("LAYERS_PATH") + "/tendaedu-backend"
+			pathToBackendCore := os.Getenv("LAYERS_PATH") + "/layers-core-backend"
 
 			cmd := exec.Command("sudo", "docker-compose", "up", "-d")
 			cmd.Dir = pathToBackendCore
@@ -596,9 +596,9 @@ var directoriesNeedsDictionary = map[string]DirectoryNeeds{
 		check: func(args []string) (succeeded bool, reason string, solution string) {
 			dir := args[0]
 			ports := map[string]string{
-				"tendaedu-backend":    "8009",
-				"layers-auth-vanilla": "8090",
-				"layers-webapp":       "8080",
+				"layers-core-backend": "8009",
+				"layers-core-id":      "8090",
+				"layers-core-app-web": "8080",
 			}
 
 			succeeded, reason, solution = checkProcessAtPort(ports[dir], "node", dir)
@@ -612,7 +612,7 @@ var directoriesNeedsDictionary = map[string]DirectoryNeeds{
 }
 
 var layersDirectoriesDictionary = map[string]LayersDirectory{
-	"tendaedu-backend": {
+	"layers-core-backend": {
 		requires: []string{},
 		instructions: []RunInstruction{
 			{
@@ -626,8 +626,8 @@ var layersDirectoriesDictionary = map[string]LayersDirectory{
 			},
 		},
 	},
-	"layers-auth-vanilla": {
-		requires: []string{"tendaedu-backend"},
+	"layers-core-id": {
+		requires: []string{"layers-core-backend"},
 		instructions: []RunInstruction{
 			{
 				path:        "root",
@@ -640,11 +640,11 @@ var layersDirectoriesDictionary = map[string]LayersDirectory{
 			},
 		},
 	},
-	"tendaedu-web": {
+	"layers-core-app-web-legacy": {
 		requires: []string{
-			"tendaedu-backend",
-			"layers-webapp",
-			"layers-auth-vanilla",
+			"layers-core-backend",
+			"layers-core-app-web",
+			"layers-core-id",
 		},
 		instructions: []RunInstruction{
 			{
@@ -658,10 +658,10 @@ var layersDirectoriesDictionary = map[string]LayersDirectory{
 			},
 		},
 	},
-	"layers-webapp": {
+	"layers-core-app-web": {
 		requires: []string{
-			"tendaedu-backend",
-			"layers-auth-vanilla",
+			"layers-core-backend",
+			"layers-core-id",
 		},
 		instructions: []RunInstruction{
 			{
@@ -677,9 +677,9 @@ var layersDirectoriesDictionary = map[string]LayersDirectory{
 	},
 	"layers-apps-comunicados": {
 		requires: []string{
-			"tendaedu-backend",
-			"layers-auth-vanilla",
-			"layers-webapp",
+			"layers-core-backend",
+			"layers-core-id",
+			"layers-core-app-web",
 		},
 		instructions: []RunInstruction{
 			{
@@ -704,9 +704,9 @@ var layersDirectoriesDictionary = map[string]LayersDirectory{
 	},
 	"layers-agenda": {
 		requires: []string{
-			"tendaedu-backend",
-			"layers-auth-vanilla",
-			"layers-webapp",
+			"layers-core-backend",
+			"layers-core-id",
+			"layers-core-app-web",
 		},
 		instructions: []RunInstruction{
 			{
@@ -850,6 +850,6 @@ var staticErrors = map[string]map[string]string{
 		"solution": "Install node using nvm(https://github.com/nvm-sh/nvm) or asdf(https://github.com/asdf-vm/asdf-nodejs)",
 	},
 	"docker_init": {
-		"solution": "Be sure that you ran `sudo docker-compose up -d` at `tendaedu-backend` or `payments`",
+		"solution": "Be sure that you ran `sudo docker-compose up -d` at `layers-core-backend` or `payments`",
 	},
 }
